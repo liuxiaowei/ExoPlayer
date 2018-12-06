@@ -31,13 +31,11 @@ import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 /**
  * Test for {@link DefaultExtractorInput}.
  */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = Config.TARGET_SDK, manifest = Config.NONE)
 public class DefaultExtractorInputTest {
 
   private static final String TEST_URI = "http://www.google.com";
@@ -338,6 +336,23 @@ public class DefaultExtractorInputTest {
     } catch (EOFException e) {
       // Expected.
     }
+  }
+
+  @Test
+  public void testPeekFullyAfterEofExceptionPeeksAsExpected() throws Exception {
+    DefaultExtractorInput input = createDefaultExtractorInput();
+    byte[] target = new byte[TEST_DATA.length + 10];
+
+    try {
+      input.peekFully(target, /* offset= */ 0, target.length);
+      fail();
+    } catch (EOFException expected) {
+      // Do nothing. Expected.
+    }
+    input.peekFully(target, /* offset= */ 0, /* length= */ TEST_DATA.length);
+
+    assertThat(input.getPeekPosition()).isEqualTo(TEST_DATA.length);
+    assertThat(Arrays.equals(TEST_DATA, Arrays.copyOf(target, TEST_DATA.length))).isTrue();
   }
 
   @Test

@@ -21,17 +21,15 @@ import java.io.ByteArrayOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 /**
  * Tests {@link ReusableBufferedOutputStream}.
  */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = Config.TARGET_SDK, manifest = Config.NONE)
 public final class ReusableBufferedOutputStreamTest {
 
-  private static final byte[] TEST_DATA_1 = "test data 1".getBytes();
-  private static final byte[] TEST_DATA_2 = "2 test data".getBytes();
+  private static final byte[] TEST_DATA_1 = Util.getUtf8Bytes("test data 1");
+  private static final byte[] TEST_DATA_2 = Util.getUtf8Bytes("2 test data");
 
   @Test
   public void testReset() throws Exception {

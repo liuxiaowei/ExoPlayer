@@ -18,6 +18,11 @@ android {
     compileSdkVersion project.ext.compileSdkVersion
     buildToolsVersion project.ext.buildToolsVersion
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
     defaultConfig {
         minSdkVersion 17
         targetSdkVersion project.ext.targetSdkVersion
@@ -25,12 +30,12 @@ android {
 }
 
 dependencies {
-    compile project(modulePrefix + 'library-core')
-    compile('com.android.support:leanback-v17:' + supportLibraryVersion)
+    implementation project(modulePrefix + 'library-core')
+    implementation('com.android.support:leanback-v17:' + supportLibraryVersion)
 }
 
 ext {
-    javadocTitle = 'Leanback extension for Exoplayer library'
+    javadocTitle = 'Leanback extension'
 }
 apply from: '../../javadoc_library.gradle'
 

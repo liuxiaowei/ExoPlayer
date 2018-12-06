@@ -29,7 +29,8 @@ EXOPLAYER_ROOT="$(pwd)"
 FFMPEG_EXT_PATH="${EXOPLAYER_ROOT}/extensions/ffmpeg/src/main"
 ```
 
-* Download the [Android NDK][] and set its location in an environment variable:
+* Download the [Android NDK][] and set its location in an environment variable.
+  Only versions up to NDK 15c are supported currently.
 
 ```
 NDK_PATH="<path to Android NDK>"
@@ -45,7 +46,7 @@ HOST_PLATFORM="linux-x86_64"
   be supported. See the [Supported formats][] page for more details of the
   available flags.
 
-For example, to fetch and build for armeabi-v7a,
+For example, to fetch and build FFmpeg release 4.0 for armeabi-v7a,
   arm64-v8a and x86 on Linux x86_64:
 
 ```
@@ -69,7 +70,8 @@ COMMON_OPTIONS="\
     --enable-decoder=flac \
     " && \
 cd "${FFMPEG_EXT_PATH}/jni" && \
-git clone git://source.ffmpeg.org/ffmpeg ffmpeg && cd ffmpeg && \
+(git -C ffmpeg pull || git clone git://source.ffmpeg.org/ffmpeg ffmpeg) && \
+cd ffmpeg && git checkout release/4.0 && \
 ./configure \
     --libdir=android-libs/armeabi-v7a \
     --arch=arm \

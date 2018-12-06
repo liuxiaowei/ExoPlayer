@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 The Android Open Source Project
+ * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,11 +77,10 @@ public class DefaultPlaybackController implements MediaSessionConnector.Playback
   public long getSupportedPlaybackActions(Player player) {
     if (player == null || player.getCurrentTimeline().isEmpty()) {
       return 0;
+    } else if (!player.isCurrentWindowSeekable()) {
+      return BASE_ACTIONS;
     }
-    long actions = BASE_ACTIONS;
-    if (player.isCurrentWindowSeekable()) {
-      actions |= PlaybackStateCompat.ACTION_SEEK_TO;
-    }
+    long actions = BASE_ACTIONS | PlaybackStateCompat.ACTION_SEEK_TO;
     if (fastForwardIncrementMs > 0) {
       actions |= PlaybackStateCompat.ACTION_FAST_FORWARD;
     }
@@ -128,7 +127,7 @@ public class DefaultPlaybackController implements MediaSessionConnector.Playback
 
   @Override
   public void onStop(Player player) {
-    player.stop();
+    player.stop(true);
   }
 
   @Override

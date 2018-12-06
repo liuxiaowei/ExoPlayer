@@ -17,6 +17,7 @@ package com.google.android.exoplayer2.extractor.wav;
 
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.extractor.SeekMap;
+import com.google.android.exoplayer2.extractor.SeekPoint;
 import com.google.android.exoplayer2.util.Util;
 
 /** Header for a WAV file. */
@@ -51,7 +52,7 @@ import com.google.android.exoplayer2.util.Util;
     this.encoding = encoding;
   }
 
-  // Setting bounds.
+  // Data bounds.
 
   /**
    * Sets the data start position and size in bytes of sample data in this WAV.
@@ -62,6 +63,11 @@ import com.google.android.exoplayer2.util.Util;
   public void setDataBounds(long dataStartPosition, long dataSize) {
     this.dataStartPosition = dataStartPosition;
     this.dataSize = dataSize;
+  }
+
+  /** Returns the data limit, or {@link C#POSITION_UNSET} if the data bounds have not been set. */
+  public long getDataLimit() {
+    return hasDataBounds() ? (dataStartPosition + dataSize) : C.POSITION_UNSET;
   }
 
   /** Returns whether the data start position and size have been set. */
@@ -83,13 +89,22 @@ import com.google.android.exoplayer2.util.Util;
   }
 
   @Override
-  public long getPosition(long timeUs) {
+  public SeekPoints getSeekPoints(long timeUs) {
     long positionOffset = (timeUs * averageBytesPerSecond) / C.MICROS_PER_SECOND;
     // Constrain to nearest preceding frame offset.
     positionOffset = (positionOffset / blockAlignment) * blockAlignment;
     positionOffset = Util.constrainValue(positionOffset, 0, dataSize - blockAlignment);
-    // Add data start position.
-    return dataStartPosition + positionOffset;
+    long seekPosition = dataStartPosition + positionOffset;
+    long seekTimeUs = getTimeUs(seekPosition);
+    SeekPoint seekPoint = new SeekPoint(seekTimeUs, seekPosition);
+    if (seekTimeUs >= timeUs || positionOffset == dataSize - blockAlignment) {
+      return new SeekPoints(seekPoint);
+    } else {
+      long secondSeekPosition = seekPosition + blockAlignment;
+      long secondSeekTimeUs = getTimeUs(secondSeekPosition);
+      SeekPoint secondSeekPoint = new SeekPoint(secondSeekTimeUs, secondSeekPosition);
+      return new SeekPoints(seekPoint, secondSeekPoint);
+    }
   }
 
   // Misc getters.
@@ -100,7 +115,8 @@ import com.google.android.exoplayer2.util.Util;
    * @param position The position in bytes.
    */
   public long getTimeUs(long position) {
-    return position * C.MICROS_PER_SECOND / averageBytesPerSecond;
+    long positionOffset = Math.max(0, position - dataStartPosition);
+    return (positionOffset * C.MICROS_PER_SECOND) / averageBytesPerSecond;
   }
 
   /** Returns the bytes per frame of this WAV. */

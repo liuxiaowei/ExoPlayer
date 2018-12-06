@@ -30,10 +30,8 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-/**
- * A queue of media samples.
- */
-public final class SampleQueue implements TrackOutput {
+/** A queue of media samples. */
+public class SampleQueue implements TrackOutput {
 
   /**
    * A listener for changes to the upstream format.
@@ -182,6 +180,13 @@ public final class SampleQueue implements TrackOutput {
   }
 
   /**
+   * Returns the absolute index of the first sample.
+   */
+  public int getFirstIndex() {
+    return metadataQueue.getFirstIndex();
+  }
+
+  /**
    * Returns the current absolute read index.
    */
   public int getReadIndex() {
@@ -217,6 +222,11 @@ public final class SampleQueue implements TrackOutput {
    */
   public long getLargestQueuedTimestampUs() {
     return metadataQueue.getLargestQueuedTimestampUs();
+  }
+
+  /** Returns the timestamp of the first sample, or {@link Long#MIN_VALUE} if the queue is empty. */
+  public long getFirstTimestampUs() {
+    return metadataQueue.getFirstTimestampUs();
   }
 
   /**
@@ -279,6 +289,18 @@ public final class SampleQueue implements TrackOutput {
    */
   public int advanceTo(long timeUs, boolean toKeyframe, boolean allowTimeBeyondBuffer) {
     return metadataQueue.advanceTo(timeUs, toKeyframe, allowTimeBeyondBuffer);
+  }
+
+  /**
+   * Attempts to set the read position to the specified sample index.
+   *
+   * @param sampleIndex The sample index.
+   * @return Whether the read position was set successfully. False is returned if the specified
+   *     index is smaller than the index of the first sample in the queue, or larger than the index
+   *     of the next sample that will be written.
+   */
+  public boolean setReadPosition(int sampleIndex) {
+    return metadataQueue.setReadPosition(sampleIndex);
   }
 
   /**
@@ -544,18 +566,22 @@ public final class SampleQueue implements TrackOutput {
   }
 
   @Override
-  public void sampleMetadata(long timeUs, @C.BufferFlags int flags, int size, int offset,
-      CryptoData cryptoData) {
+  public void sampleMetadata(
+      long timeUs,
+      @C.BufferFlags int flags,
+      int size,
+      int offset,
+      @Nullable CryptoData cryptoData) {
     if (pendingFormatAdjustment) {
       format(lastUnadjustedFormat);
     }
+    timeUs += sampleOffsetUs;
     if (pendingSplice) {
       if ((flags & C.BUFFER_FLAG_KEY_FRAME) == 0 || !metadataQueue.attemptSplice(timeUs)) {
         return;
       }
       pendingSplice = false;
     }
-    timeUs += sampleOffsetUs;
     long absoluteOffset = totalBytesWritten - size - offset;
     metadataQueue.commitSample(timeUs, flags, absoluteOffset, size, cryptoData);
   }

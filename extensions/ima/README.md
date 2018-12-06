@@ -12,10 +12,10 @@ alongside content.
 The easiest way to use the extension is to add it as a gradle dependency:
 
 ```gradle
-compile 'com.google.android.exoplayer:extension-ima:rX.X.X'
+implementation 'com.google.android.exoplayer:extension-ima:2.X.X'
 ```
 
-where `rX.X.X` is the version, which must match the version of the ExoPlayer
+where `2.X.X` is the version, which must match the version of the ExoPlayer
 library being used.
 
 Alternatively, you can clone the ExoPlayer repository and depend on the module
@@ -30,7 +30,9 @@ To play ads alongside a single-window content `MediaSource`, prepare the player
 with an `AdsMediaSource` constructed using an `ImaAdsLoader`, the content
 `MediaSource` and an overlay `ViewGroup` on top of the player. Pass an ad tag
 URI from your ad campaign when creating the `ImaAdsLoader`. The IMA
-documentation includes some [sample ad tags][] for testing.
+documentation includes some [sample ad tags][] for testing. Note that the IMA
+extension only supports players which are accessed on the application's main
+thread.
 
 Resuming the player after entering the background requires some special handling
 when playing ads. The player and its media source are released on entering the

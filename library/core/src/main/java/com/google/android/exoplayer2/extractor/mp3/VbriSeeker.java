@@ -15,9 +15,11 @@
  */
 package com.google.android.exoplayer2.extractor.mp3;
 
-import android.util.Log;
+import android.support.annotation.Nullable;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.extractor.MpegAudioHeader;
+import com.google.android.exoplayer2.extractor.SeekPoint;
+import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.ParsableByteArray;
 import com.google.android.exoplayer2.util.Util;
 
@@ -41,8 +43,8 @@ import com.google.android.exoplayer2.util.Util;
    * @return A {@link VbriSeeker} for seeking in the stream, or {@code null} if the required
    *     information is not present.
    */
-  public static VbriSeeker create(long inputLength, long position, MpegAudioHeader mpegAudioHeader,
-      ParsableByteArray frame) {
+  public static @Nullable VbriSeeker create(
+      long inputLength, long position, MpegAudioHeader mpegAudioHeader, ParsableByteArray frame) {
     frame.skipBytes(10);
     int numFrames = frame.readInt();
     if (numFrames <= 0) {
@@ -87,17 +89,19 @@ import com.google.android.exoplayer2.util.Util;
     if (inputLength != C.LENGTH_UNSET && inputLength != position) {
       Log.w(TAG, "VBRI data size mismatch: " + inputLength + ", " + position);
     }
-    return new VbriSeeker(timesUs, positions, durationUs);
+    return new VbriSeeker(timesUs, positions, durationUs, /* dataEndPosition= */ position);
   }
 
   private final long[] timesUs;
   private final long[] positions;
   private final long durationUs;
+  private final long dataEndPosition;
 
-  private VbriSeeker(long[] timesUs, long[] positions, long durationUs) {
+  private VbriSeeker(long[] timesUs, long[] positions, long durationUs, long dataEndPosition) {
     this.timesUs = timesUs;
     this.positions = positions;
     this.durationUs = durationUs;
+    this.dataEndPosition = dataEndPosition;
   }
 
   @Override
@@ -106,8 +110,15 @@ import com.google.android.exoplayer2.util.Util;
   }
 
   @Override
-  public long getPosition(long timeUs) {
-    return positions[Util.binarySearchFloor(timesUs, timeUs, true, true)];
+  public SeekPoints getSeekPoints(long timeUs) {
+    int tableIndex = Util.binarySearchFloor(timesUs, timeUs, true, true);
+    SeekPoint seekPoint = new SeekPoint(timesUs[tableIndex], positions[tableIndex]);
+    if (seekPoint.timeUs >= timeUs || tableIndex == timesUs.length - 1) {
+      return new SeekPoints(seekPoint);
+    } else {
+      SeekPoint nextSeekPoint = new SeekPoint(timesUs[tableIndex + 1], positions[tableIndex + 1]);
+      return new SeekPoints(seekPoint, nextSeekPoint);
+    }
   }
 
   @Override
@@ -120,4 +131,8 @@ import com.google.android.exoplayer2.util.Util;
     return durationUs;
   }
 
+  @Override
+  public long getDataEndPosition() {
+    return dataEndPosition;
+  }
 }

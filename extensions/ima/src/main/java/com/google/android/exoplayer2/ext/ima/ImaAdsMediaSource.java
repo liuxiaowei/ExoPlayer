@@ -20,11 +20,14 @@ import android.support.annotation.Nullable;
 import android.view.ViewGroup;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.Timeline;
+import com.google.android.exoplayer2.source.BaseMediaSource;
 import com.google.android.exoplayer2.source.MediaPeriod;
 import com.google.android.exoplayer2.source.MediaSource;
+import com.google.android.exoplayer2.source.MediaSource.SourceInfoRefreshListener;
 import com.google.android.exoplayer2.source.ads.AdsMediaSource;
 import com.google.android.exoplayer2.upstream.Allocator;
 import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.android.exoplayer2.upstream.TransferListener;
 import java.io.IOException;
 
 /**
@@ -33,7 +36,7 @@ import java.io.IOException;
  * @deprecated Use com.google.android.exoplayer2.source.ads.AdsMediaSource with ImaAdsLoader.
  */
 @Deprecated
-public final class ImaAdsMediaSource implements MediaSource {
+public final class ImaAdsMediaSource extends BaseMediaSource implements SourceInfoRefreshListener {
 
   private final AdsMediaSource adsMediaSource;
 
@@ -74,15 +77,12 @@ public final class ImaAdsMediaSource implements MediaSource {
   }
 
   @Override
-  public void prepareSource(final ExoPlayer player, boolean isTopLevelSource,
-      final Listener listener) {
-    adsMediaSource.prepareSource(player, false, new Listener() {
-      @Override
-      public void onSourceInfoRefreshed(MediaSource source, Timeline timeline,
-          @Nullable Object manifest) {
-        listener.onSourceInfoRefreshed(ImaAdsMediaSource.this, timeline, manifest);
-      }
-    });
+  public void prepareSourceInternal(
+      final ExoPlayer player,
+      boolean isTopLevelSource,
+      @Nullable TransferListener mediaTransferListener) {
+    adsMediaSource.prepareSource(
+        player, isTopLevelSource, /* listener= */ this, mediaTransferListener);
   }
 
   @Override
@@ -101,8 +101,13 @@ public final class ImaAdsMediaSource implements MediaSource {
   }
 
   @Override
-  public void releaseSource() {
-    adsMediaSource.releaseSource();
+  public void releaseSourceInternal() {
+    adsMediaSource.releaseSource(/* listener= */ this);
   }
 
+  @Override
+  public void onSourceInfoRefreshed(
+      MediaSource source, Timeline timeline, @Nullable Object manifest) {
+    refreshSourceInfo(timeline, manifest);
+  }
 }

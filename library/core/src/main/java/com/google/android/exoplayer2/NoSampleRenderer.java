@@ -15,6 +15,7 @@
  */
 package com.google.android.exoplayer2;
 
+import android.support.annotation.Nullable;
 import com.google.android.exoplayer2.source.SampleStream;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.MediaClock;
@@ -179,10 +180,10 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
     return ADAPTIVE_NOT_SUPPORTED;
   }
 
-  // ExoPlayerComponent implementation.
+  // PlayerMessage.Target implementation.
 
   @Override
-  public void handleMessage(int what, Object object) throws ExoPlaybackException {
+  public void handleMessage(int what, @Nullable Object object) throws ExoPlaybackException {
     // Do nothing.
   }
 

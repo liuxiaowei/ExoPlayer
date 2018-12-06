@@ -18,6 +18,7 @@ package com.google.android.exoplayer2.util;
 import static com.google.android.exoplayer2.util.Util.binarySearchCeil;
 import static com.google.android.exoplayer2.util.Util.binarySearchFloor;
 import static com.google.android.exoplayer2.util.Util.escapeFileName;
+import static com.google.android.exoplayer2.util.Util.getCodecsOfType;
 import static com.google.android.exoplayer2.util.Util.parseXsDateTime;
 import static com.google.android.exoplayer2.util.Util.parseXsDuration;
 import static com.google.android.exoplayer2.util.Util.unescapeFileName;
@@ -26,19 +27,55 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.testutil.TestUtil;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.zip.Deflater;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 /**
  * Unit tests for {@link Util}.
  */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = Config.TARGET_SDK, manifest = Config.NONE)
 public class UtilTest {
+
+  @Test
+  public void testAddWithOverflowDefault() {
+    long res = Util.addWithOverflowDefault(5, 10, /* overflowResult= */ 0);
+    assertThat(res).isEqualTo(15);
+
+    res = Util.addWithOverflowDefault(Long.MAX_VALUE - 1, 1, /* overflowResult= */ 12345);
+    assertThat(res).isEqualTo(Long.MAX_VALUE);
+
+    res = Util.addWithOverflowDefault(Long.MIN_VALUE + 1, -1, /* overflowResult= */ 12345);
+    assertThat(res).isEqualTo(Long.MIN_VALUE);
+
+    res = Util.addWithOverflowDefault(Long.MAX_VALUE, 1, /* overflowResult= */ 12345);
+    assertThat(res).isEqualTo(12345);
+
+    res = Util.addWithOverflowDefault(Long.MIN_VALUE, -1, /* overflowResult= */ 12345);
+    assertThat(res).isEqualTo(12345);
+  }
+
+  @Test
+  public void testSubtrackWithOverflowDefault() {
+    long res = Util.subtractWithOverflowDefault(5, 10, /* overflowResult= */ 0);
+    assertThat(res).isEqualTo(-5);
+
+    res = Util.subtractWithOverflowDefault(Long.MIN_VALUE + 1, 1, /* overflowResult= */ 12345);
+    assertThat(res).isEqualTo(Long.MIN_VALUE);
+
+    res = Util.subtractWithOverflowDefault(Long.MAX_VALUE - 1, -1, /* overflowResult= */ 12345);
+    assertThat(res).isEqualTo(Long.MAX_VALUE);
+
+    res = Util.subtractWithOverflowDefault(Long.MIN_VALUE, 1, /* overflowResult= */ 12345);
+    assertThat(res).isEqualTo(12345);
+
+    res = Util.subtractWithOverflowDefault(Long.MAX_VALUE, -1, /* overflowResult= */ 12345);
+    assertThat(res).isEqualTo(12345);
+  }
 
   @Test
   public void testInferContentType() {
@@ -182,6 +219,18 @@ public class UtilTest {
   }
 
   @Test
+  public void testGetCodecsOfType() {
+    assertThat(getCodecsOfType(null, C.TRACK_TYPE_VIDEO)).isNull();
+    assertThat(getCodecsOfType("avc1.64001e,vp9.63.1", C.TRACK_TYPE_AUDIO)).isNull();
+    assertThat(getCodecsOfType(" vp9.63.1, ec-3 ", C.TRACK_TYPE_AUDIO)).isEqualTo("ec-3");
+    assertThat(getCodecsOfType("avc1.61e, vp9.63.1, ec-3 ", C.TRACK_TYPE_VIDEO))
+        .isEqualTo("avc1.61e,vp9.63.1");
+    assertThat(getCodecsOfType("avc1.61e, vp9.63.1, ec-3 ", C.TRACK_TYPE_VIDEO))
+        .isEqualTo("avc1.61e,vp9.63.1");
+    assertThat(getCodecsOfType("invalidCodec1, invalidCodec2 ", C.TRACK_TYPE_AUDIO)).isNull();
+  }
+
+  @Test
   public void testUnescapeInvalidFileName() {
     assertThat(Util.unescapeFileName("%a")).isNull();
     assertThat(Util.unescapeFileName("%xyz")).isNull();
@@ -198,6 +247,23 @@ public class UtilTest {
       String string = TestUtil.buildTestString(1000, random);
       assertEscapeUnescapeFileName(string);
     }
+  }
+
+  @Test
+  public void testInflate() {
+    byte[] testData = TestUtil.buildTestData(/*arbitrary test data size*/ 256 * 1024);
+    byte[] compressedData = new byte[testData.length * 2];
+    Deflater compresser = new Deflater(9);
+    compresser.setInput(testData);
+    compresser.finish();
+    int compressedDataLength = compresser.deflate(compressedData);
+    compresser.end();
+
+    ParsableByteArray input = new ParsableByteArray(compressedData, compressedDataLength);
+    ParsableByteArray output = new ParsableByteArray();
+    assertThat(Util.inflate(input, output, /* inflater= */ null)).isTrue();
+    assertThat(output.limit()).isEqualTo(testData.length);
+    assertThat(Arrays.copyOf(output.data, output.limit())).isEqualTo(testData);
   }
 
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {

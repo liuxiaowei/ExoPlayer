@@ -27,13 +27,11 @@ import java.util.Collections;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
 
 /**
  * Unit test for {@link WebvttCueParser}.
  */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = Config.TARGET_SDK, manifest = Config.NONE)
 public final class WebvttCueParserTest {
 
   @Test
@@ -248,7 +246,7 @@ public final class WebvttCueParserTest {
 
   private static Spanned parseCueText(String string) {
     WebvttCue.Builder builder = new WebvttCue.Builder();
-    WebvttCueParser.parseCueText(null, string, builder, Collections.<WebvttCssStyle>emptyList());
+    WebvttCueParser.parseCueText(null, string, builder, Collections.emptyList());
     return (Spanned) builder.build().text;
   }
 

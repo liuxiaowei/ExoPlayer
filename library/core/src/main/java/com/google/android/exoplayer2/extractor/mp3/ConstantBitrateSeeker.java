@@ -16,68 +16,32 @@
 package com.google.android.exoplayer2.extractor.mp3;
 
 import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.extractor.ConstantBitrateSeekMap;
 import com.google.android.exoplayer2.extractor.MpegAudioHeader;
-import com.google.android.exoplayer2.util.Util;
 
 /**
  * MP3 seeker that doesn't rely on metadata and seeks assuming the source has a constant bitrate.
  */
-/* package */ final class ConstantBitrateSeeker implements Mp3Extractor.Seeker {
-
-  private static final int BITS_PER_BYTE = 8;
-
-  private final long firstFramePosition;
-  private final int frameSize;
-  private final long dataSize;
-  private final int bitrate;
-  private final long durationUs;
+/* package */ final class ConstantBitrateSeeker extends ConstantBitrateSeekMap
+    implements Mp3Extractor.Seeker {
 
   /**
    * @param inputLength The length of the stream in bytes, or {@link C#LENGTH_UNSET} if unknown.
    * @param firstFramePosition The position of the first frame in the stream.
    * @param mpegAudioHeader The MPEG audio header associated with the first frame.
    */
-  public ConstantBitrateSeeker(long inputLength, long firstFramePosition,
-      MpegAudioHeader mpegAudioHeader) {
-    this.firstFramePosition = firstFramePosition;
-    this.frameSize = mpegAudioHeader.frameSize;
-    this.bitrate = mpegAudioHeader.bitrate;
-    if (inputLength == C.LENGTH_UNSET) {
-      dataSize = C.LENGTH_UNSET;
-      durationUs = C.TIME_UNSET;
-    } else {
-      dataSize = inputLength - firstFramePosition;
-      durationUs = getTimeUs(inputLength);
-    }
-  }
-
-  @Override
-  public boolean isSeekable() {
-    return dataSize != C.LENGTH_UNSET;
-  }
-
-  @Override
-  public long getPosition(long timeUs) {
-    if (dataSize == C.LENGTH_UNSET) {
-      return firstFramePosition;
-    }
-    long positionOffset = (timeUs * bitrate) / (C.MICROS_PER_SECOND * BITS_PER_BYTE);
-    // Constrain to nearest preceding frame offset.
-    positionOffset = (positionOffset / frameSize) * frameSize;
-    positionOffset = Util.constrainValue(positionOffset, 0, dataSize - frameSize);
-    // Add data start position.
-    return firstFramePosition + positionOffset;
+  public ConstantBitrateSeeker(
+      long inputLength, long firstFramePosition, MpegAudioHeader mpegAudioHeader) {
+    super(inputLength, firstFramePosition, mpegAudioHeader.bitrate, mpegAudioHeader.frameSize);
   }
 
   @Override
   public long getTimeUs(long position) {
-    return (Math.max(0, position - firstFramePosition) * C.MICROS_PER_SECOND * BITS_PER_BYTE)
-        / bitrate;
+    return getTimeUsAtPosition(position);
   }
 
   @Override
-  public long getDurationUs() {
-    return durationUs;
+  public long getDataEndPosition() {
+    return C.POSITION_UNSET;
   }
-
 }

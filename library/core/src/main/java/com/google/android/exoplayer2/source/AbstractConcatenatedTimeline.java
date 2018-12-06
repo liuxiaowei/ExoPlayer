@@ -27,14 +27,49 @@ import com.google.android.exoplayer2.Timeline;
 
   private final int childCount;
   private final ShuffleOrder shuffleOrder;
+  private final boolean isAtomic;
+
+  /**
+   * Returns UID of child timeline from a concatenated period UID.
+   *
+   * @param concatenatedUid UID of a period in a concatenated timeline.
+   * @return UID of the child timeline this period belongs to.
+   */
+  public static Object getChildTimelineUidFromConcatenatedUid(Object concatenatedUid) {
+    return ((Pair<?, ?>) concatenatedUid).first;
+  }
+
+  /**
+   * Returns UID of the period in the child timeline from a concatenated period UID.
+   *
+   * @param concatenatedUid UID of a period in a concatenated timeline.
+   * @return UID of the period in the child timeline.
+   */
+  public static Object getChildPeriodUidFromConcatenatedUid(Object concatenatedUid) {
+    return ((Pair<?, ?>) concatenatedUid).second;
+  }
+
+  /**
+   * Returns concatenated UID for a period in a child timeline.
+   *
+   * @param childTimelineUid UID of the child timeline this period belongs to.
+   * @param childPeriodUid UID of the period in the child timeline.
+   * @return UID of the period in the concatenated timeline.
+   */
+  public static Object getConcatenatedUid(Object childTimelineUid, Object childPeriodUid) {
+    return Pair.create(childTimelineUid, childPeriodUid);
+  }
 
   /**
    * Sets up a concatenated timeline with a shuffle order of child timelines.
    *
+   * @param isAtomic Whether the child timelines shall be treated as atomic, i.e., treated as a
+   *     single item for repeating and shuffling.
    * @param shuffleOrder A shuffle order of child timelines. The number of child timelines must
    *     match the number of elements in the shuffle order.
    */
-  public AbstractConcatenatedTimeline(ShuffleOrder shuffleOrder) {
+  public AbstractConcatenatedTimeline(boolean isAtomic, ShuffleOrder shuffleOrder) {
+    this.isAtomic = isAtomic;
     this.shuffleOrder = shuffleOrder;
     this.childCount = shuffleOrder.getLength();
   }
@@ -42,6 +77,11 @@ import com.google.android.exoplayer2.Timeline;
   @Override
   public int getNextWindowIndex(int windowIndex, @Player.RepeatMode int repeatMode,
       boolean shuffleModeEnabled) {
+    if (isAtomic) {
+      // Adapt repeat and shuffle mode to atomic concatenation.
+      repeatMode = repeatMode == Player.REPEAT_MODE_ONE ? Player.REPEAT_MODE_ALL : repeatMode;
+      shuffleModeEnabled = false;
+    }
     // Find next window within current child.
     int childIndex = getChildIndexByWindowIndex(windowIndex);
     int firstWindowIndexInChild = getFirstWindowIndexByChildIndex(childIndex);
@@ -71,6 +111,11 @@ import com.google.android.exoplayer2.Timeline;
   @Override
   public int getPreviousWindowIndex(int windowIndex, @Player.RepeatMode int repeatMode,
       boolean shuffleModeEnabled) {
+    if (isAtomic) {
+      // Adapt repeat and shuffle mode to atomic concatenation.
+      repeatMode = repeatMode == Player.REPEAT_MODE_ONE ? Player.REPEAT_MODE_ALL : repeatMode;
+      shuffleModeEnabled = false;
+    }
     // Find previous window within current child.
     int childIndex = getChildIndexByWindowIndex(windowIndex);
     int firstWindowIndexInChild = getFirstWindowIndexByChildIndex(childIndex);
@@ -103,6 +148,9 @@ import com.google.android.exoplayer2.Timeline;
     if (childCount == 0) {
       return C.INDEX_UNSET;
     }
+    if (isAtomic) {
+      shuffleModeEnabled = false;
+    }
     // Find last non-empty child.
     int lastChildIndex = shuffleModeEnabled ? shuffleOrder.getLastIndex() : childCount - 1;
     while (getTimelineByChildIndex(lastChildIndex).isEmpty()) {
@@ -121,6 +169,9 @@ import com.google.android.exoplayer2.Timeline;
     if (childCount == 0) {
       return C.INDEX_UNSET;
     }
+    if (isAtomic) {
+      shuffleModeEnabled = false;
+    }
     // Find first non-empty child.
     int firstChildIndex = shuffleModeEnabled ? shuffleOrder.getFirstIndex() : 0;
     while (getTimelineByChildIndex(firstChildIndex).isEmpty()) {
@@ -135,16 +186,29 @@ import com.google.android.exoplayer2.Timeline;
   }
 
   @Override
-  public final Window getWindow(int windowIndex, Window window, boolean setIds,
-      long defaultPositionProjectionUs) {
+  public final Window getWindow(
+      int windowIndex, Window window, boolean setTag, long defaultPositionProjectionUs) {
     int childIndex = getChildIndexByWindowIndex(windowIndex);
     int firstWindowIndexInChild = getFirstWindowIndexByChildIndex(childIndex);
     int firstPeriodIndexInChild = getFirstPeriodIndexByChildIndex(childIndex);
-    getTimelineByChildIndex(childIndex).getWindow(windowIndex - firstWindowIndexInChild, window,
-        setIds, defaultPositionProjectionUs);
+    getTimelineByChildIndex(childIndex)
+        .getWindow(
+            windowIndex - firstWindowIndexInChild, window, setTag, defaultPositionProjectionUs);
     window.firstPeriodIndex += firstPeriodIndexInChild;
     window.lastPeriodIndex += firstPeriodIndexInChild;
     return window;
+  }
+
+  @Override
+  public final Period getPeriodByUid(Object uid, Period period) {
+    Object childUid = getChildTimelineUidFromConcatenatedUid(uid);
+    Object periodUid = getChildPeriodUidFromConcatenatedUid(uid);
+    int childIndex = getChildIndexByChildUid(childUid);
+    int firstWindowIndexInChild = getFirstWindowIndexByChildIndex(childIndex);
+    getTimelineByChildIndex(childIndex).getPeriodByUid(periodUid, period);
+    period.windowIndex += firstWindowIndexInChild;
+    period.uid = uid;
+    return period;
   }
 
   @Override
@@ -156,7 +220,7 @@ import com.google.android.exoplayer2.Timeline;
         setIds);
     period.windowIndex += firstWindowIndexInChild;
     if (setIds) {
-      period.uid = Pair.create(getChildUidByChildIndex(childIndex), period.uid);
+      period.uid = getConcatenatedUid(getChildUidByChildIndex(childIndex), period.uid);
     }
     return period;
   }
@@ -166,9 +230,8 @@ import com.google.android.exoplayer2.Timeline;
     if (!(uid instanceof Pair)) {
       return C.INDEX_UNSET;
     }
-    Pair<?, ?> childUidAndPeriodUid = (Pair<?, ?>) uid;
-    Object childUid = childUidAndPeriodUid.first;
-    Object periodUid = childUidAndPeriodUid.second;
+    Object childUid = getChildTimelineUidFromConcatenatedUid(uid);
+    Object periodUid = getChildPeriodUidFromConcatenatedUid(uid);
     int childIndex = getChildIndexByChildUid(childUid);
     if (childIndex == C.INDEX_UNSET) {
       return C.INDEX_UNSET;
@@ -176,6 +239,15 @@ import com.google.android.exoplayer2.Timeline;
     int periodIndexInChild = getTimelineByChildIndex(childIndex).getIndexOfPeriod(periodUid);
     return periodIndexInChild == C.INDEX_UNSET ? C.INDEX_UNSET
         : getFirstPeriodIndexByChildIndex(childIndex) + periodIndexInChild;
+  }
+
+  @Override
+  public final Object getUidOfPeriod(int periodIndex) {
+    int childIndex = getChildIndexByPeriodIndex(periodIndex);
+    int firstPeriodIndexInChild = getFirstPeriodIndexByChildIndex(childIndex);
+    Object periodUidInChild =
+        getTimelineByChildIndex(childIndex).getUidOfPeriod(periodIndex - firstPeriodIndexInChild);
+    return getConcatenatedUid(getChildUidByChildIndex(childIndex), periodUidInChild);
   }
 
   /**
